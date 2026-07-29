@@ -16,8 +16,9 @@ class SpriteCommon;
 class Skybox;
 class SkyboxCommon;
 class Application;
-class Animation;
+struct Animation;
 class AnimationController;
+class LineCommon; // ↓骨デバッグ表示 追加
 
 class GameScene : public BaseScene{
 public:
@@ -55,6 +56,13 @@ private:
 	// 環境・エフェクト
 	std::unique_ptr<SkyboxCommon> skyboxCommon_;
 	std::unique_ptr<Skybox> skybox_;
+
+	// ↓骨デバッグ表示 追加
+	std::unique_ptr<LineCommon> lineCommon_;
+	bool isBoneDebugEnabled_ = false;    // 骨の線 + モデル半透明化
+	bool isAxisDisplayEnabled_ = false;  // ジョイントのローカル軸表示
+	bool isJointNameDisplayEnabled_ = false; // ジョイント名の表示
+	// ↑骨デバッグ表示 追加
 
 	// アニメーション
 	std::unique_ptr<Animation> animation_;

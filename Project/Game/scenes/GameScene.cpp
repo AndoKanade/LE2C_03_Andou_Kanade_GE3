@@ -16,6 +16,7 @@
 #include "Application.h"
 #include "Logger.h"
 #include "LevelManager.h"
+#include "LineCommon.h" // ↓骨デバッグ表示 追加
 
 namespace{
 	const std::string kTextureChecker = "resource/uvChecker.png";
@@ -31,7 +32,36 @@ namespace{
 	const std::string kModelTerrain = "Terrain/terrain.obj";
 	const std::string kModelSimpleSkin = "simpleSkin/simpleSkin.gltf";
 	const std::string kModelAnimationCube = "AnimatedCube/AnimatedCube.gltf";
-	const std::string kModelHuman = "human/sneakWalk.gltf";
+	const std::string kModelHuman = "human/walk.gltf";
+
+	// ↓骨デバッグ表示 追加
+	constexpr float kOpaqueAlpha = 1.0f; // 通常時のモデルの不透明度
+	constexpr float kBoneDebugModelAlpha = 0.3f; // 骨のデバッグ表示中のモデルの不透明度(半透明化)
+	constexpr ImU32 kJointNameTextColor = IM_COL32(255, 255, 0, 255); // 骨の名前表示の色(黄)
+
+	// ワールド座標をスクリーン座標に変換する(カメラの後方にある場合はfalseを返す)
+	bool WorldToScreenPosition(const Vector3& worldPosition,const Matrix4x4& viewProjectionMatrix,ImVec2& outScreenPosition){
+		const float clipX = worldPosition.x * viewProjectionMatrix.m[0][0] + worldPosition.y * viewProjectionMatrix.m[1][0] + worldPosition.z * viewProjectionMatrix.m[2][0] + viewProjectionMatrix.m[3][0];
+		const float clipY = worldPosition.x * viewProjectionMatrix.m[0][1] + worldPosition.y * viewProjectionMatrix.m[1][1] + worldPosition.z * viewProjectionMatrix.m[2][1] + viewProjectionMatrix.m[3][1];
+		const float clipW = worldPosition.x * viewProjectionMatrix.m[0][3] + worldPosition.y * viewProjectionMatrix.m[1][3] + worldPosition.z * viewProjectionMatrix.m[2][3] + viewProjectionMatrix.m[3][3];
+
+		if(clipW <= 0.0f){
+			return false; // カメラの後方にあるため描画しない
+		}
+
+		const float ndcX = clipX / clipW;
+		const float ndcY = clipY / clipW;
+
+		outScreenPosition.x = (ndcX * 0.5f + 0.5f) * static_cast<float>(WinAPI::kClientWidth);
+		outScreenPosition.y = (1.0f - (ndcY * 0.5f + 0.5f)) * static_cast<float>(WinAPI::kClientHeight);
+		return true;
+	}
+	// ↑骨デバッグ表示 追加
+
+	// ↓WASD移動 追加
+	constexpr float kHumanMoveSpeed = 0.05f; // WASDキー1フレームあたりの移動量
+	constexpr float kMaxMoveInputLength = 1.0f; // 移動方向ベクトルの最大長(これを超えたら正規化する)
+	// ↑WASD移動 追加
 }
 
 GameScene::GameScene() = default;
@@ -101,6 +131,12 @@ void GameScene::Initialize(Obj3dCommon* object3dCommon,Input* input,SpriteCommon
 	skybox_ = std::make_unique<Skybox>();
 	skybox_->Initialize(skyboxCommon_.get(),kSkyboxTexture);
 
+	// ↓骨デバッグ表示 追加
+	// 骨のデバッグ線描画用パイプラインの生成
+	lineCommon_ = std::make_unique<LineCommon>();
+	lineCommon_->Initialize(object3dCommon_->GetDxCommon());
+	// ↑骨デバッグ表示 追加
+
 	// アニメーションオブジェクトの生成
 	animationCube_ = std::make_shared<Obj3D>();
 	animationCube_->Initialize(object3dCommon_);
@@ -117,7 +153,12 @@ void GameScene::Initialize(Obj3dCommon* object3dCommon,Input* input,SpriteCommon
 	humanObj_->Initialize(object3dCommon_);
 	humanObj_->SetModel(kModelHuman);
 	humanObj_->SetTexture("resource/human/white.png");
-	humanObj_->LoadAnimation("resource/human/","sneakWalk.gltf");
+	humanObj_->LoadAnimation("resource/human/","walk.gltf");
+	// ↓WASD移動 追加
+	// 初期位置・スケールの設定(以降はUpdate内の移動処理で位置を更新する)
+	humanObj_->SetTranslate({0.0f, 0.0f, 5.0f});
+	humanObj_->SetScale({1.0f, 1.0f, 1.0f});
+	// ↑WASD移動 追加
 
 	// パーティクルの設定
 	ParticleManager::GetInstance()->CreateParticleGroup("Shockwave",kTexturegradationLine,true,false,true);
@@ -180,8 +221,29 @@ void GameScene::Update(){
 
 	// キャラクター更新
 	if(humanObj_){
-		humanObj_->SetTranslate({0, 0, 5});
-		humanObj_->SetScale({1, 1, 1});
+		// ↓WASD移動 追加
+		// WASDキー入力による移動方向の算出(W:奥, S:手前, A:左, D:右)
+		Vector3 moveDirection = {0.0f, 0.0f, 0.0f};
+		if(input_){
+			if(input_->PushKey(DIK_W)) moveDirection.z += 1.0f;
+			if(input_->PushKey(DIK_S)) moveDirection.z -= 1.0f;
+			if(input_->PushKey(DIK_D)) moveDirection.x += 1.0f;
+			if(input_->PushKey(DIK_A)) moveDirection.x -= 1.0f;
+
+			// ↓パッド対応 追加
+			// 左スティックの傾きをキーボード入力に加算する(併用可能にする)
+			moveDirection.x += input_->GetLeftStickX();
+			moveDirection.z += input_->GetLeftStickY();
+			// ↑パッド対応 追加
+		}
+		// 移動量が1.0を超える場合のみ正規化し、パッドの倒し具合による速度変化(アナログ感)を保つ
+		const float moveLength = Length(moveDirection);
+		if(moveLength > kMaxMoveInputLength){
+			moveDirection = Normalize(moveDirection);
+		}
+		humanObj_->SetTranslate(humanObj_->GetTranslate() + moveDirection * kHumanMoveSpeed);
+		// ↑WASD移動 追加
+
 		if(Camera* cam = CameraManager::GetInstance()->GetActiveCamera()) humanObj_->SetCamera(cam);
 		humanObj_->Update();
 	}
@@ -258,6 +320,34 @@ void GameScene::Update(){
 				if(ImGui::Checkbox("Manual Control",&isManualControl)){
 					if(isManualControl) skeleton.Update();
 				}
+
+				// ↓骨デバッグ表示 追加
+				// 骨を見やすくするため、表示中はモデルを半透明化する
+				ImGui::Checkbox("Bone Debug Display",&isBoneDebugEnabled_);
+				ImGui::Checkbox("Show Local Axes",&isAxisDisplayEnabled_);
+				ImGui::Checkbox("Show Bone Names",&isJointNameDisplayEnabled_);
+				if(auto* material = humanObj_->GetMaterial()){
+					material->color.w = isBoneDebugEnabled_ ? kBoneDebugModelAlpha : kOpaqueAlpha;
+				}
+
+				// キャラクターの現在位置(WASD移動の確認用)
+				ImGui::Text("Human Pos: (%.2f, %.2f, %.2f)",humanObj_->GetTranslate().x,humanObj_->GetTranslate().y,humanObj_->GetTranslate().z);
+
+				// 骨の名前をワールド座標からスクリーン座標に変換してImGuiのオーバーレイに表示する
+				if(isJointNameDisplayEnabled_){
+					if(Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera()){
+						const Matrix4x4 localToScreenMatrix = Multiply(humanObj_->GetWorldMatrix(),activeCamera->GetViewProjectionMatrix());
+						ImDrawList* foregroundDrawList = ImGui::GetForegroundDrawList();
+						for(const Joint& joint : skeleton.joints){
+							const Vector3 jointLocalPosition = {joint.skeletonSpaceMatrix.m[3][0], joint.skeletonSpaceMatrix.m[3][1], joint.skeletonSpaceMatrix.m[3][2]};
+							ImVec2 screenPosition;
+							if(WorldToScreenPosition(jointLocalPosition,localToScreenMatrix,screenPosition)){
+								foregroundDrawList->AddText(screenPosition,kJointNameTextColor,joint.name.c_str());
+							}
+						}
+					}
+				}
+				// ↑骨デバッグ表示 追加
 			}
 		}
 
@@ -293,6 +383,14 @@ void GameScene::Update(){
 void GameScene::Draw(){
 	object3dCommon_->Draw();
 	if(humanObj_) humanObj_->Draw();
+
+	// ↓骨デバッグ表示 追加
+	if(humanObj_ && (isBoneDebugEnabled_ || isAxisDisplayEnabled_)){
+		if(Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera()){
+			humanObj_->GetSkeleton().DrawDebug(humanObj_->GetWorldMatrix(),activeCamera->GetViewProjectionMatrix(),lineCommon_.get(),isBoneDebugEnabled_,isAxisDisplayEnabled_);
+		}
+	}
+	// ↑骨デバッグ表示 追加
 
 	for(const auto& obj : levelObjects_){
 		obj->Draw();

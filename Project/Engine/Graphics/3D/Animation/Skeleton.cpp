@@ -1,5 +1,8 @@
 #include "Skeleton.h"
 #include "Logger.h"
+// ↓骨デバッグ表示 追加
+#include "DXCommon.h"
+// ↑骨デバッグ表示 追加
 
 // 初期化・構築処理
 
@@ -64,6 +67,99 @@ void Skeleton::Update(){
 		}
 	}
 }
+
+// ↓骨デバッグ表示 追加
+// デバッグ描画用の定数
+namespace{
+	constexpr uint32_t kVerticesPerLine = 2; // 線分1本あたりの頂点数
+	constexpr uint32_t kAxisCount = 3; // ローカル軸の本数(X, Y, Z)
+	constexpr float kLocalAxisLength = 0.1f; // ローカル軸の表示長さ
+	constexpr Vector4 kBoneDebugLineColor = {0.0f, 1.0f, 0.0f, 1.0f}; // 骨のデバッグ線の色(緑)
+	constexpr Vector4 kAxisColorX = {1.0f, 0.0f, 0.0f, 1.0f}; // X軸の色(赤)
+	constexpr Vector4 kAxisColorY = {0.0f, 1.0f, 0.0f, 1.0f}; // Y軸の色(緑)
+	constexpr Vector4 kAxisColorZ = {0.0f, 0.0f, 1.0f, 1.0f}; // Z軸の色(青)
+}
+
+void Skeleton::DrawDebug(const Matrix4x4& worldMatrix,const Matrix4x4& viewProjectionMatrix,LineCommon* lineCommon,bool drawBoneLines,bool drawLocalAxes){
+	if(joints.empty() || lineCommon == nullptr || (!drawBoneLines && !drawLocalAxes)){
+		return;
+	}
+
+	DXCommon* dxCommon = lineCommon->GetDxCommon();
+
+	// 初回呼び出し時のみ、頂点バッファ・定数バッファを生成する(骨の線 + 全ジョイント分のローカル軸)
+	if(!isLineResourceCreated_){
+		const uint32_t maxLineVertexCount = static_cast<uint32_t>(joints.size()) * kVerticesPerLine * (1 + kAxisCount);
+
+		lineVertexBuffer_ = dxCommon->CreateBufferResource(sizeof(LineCommon::Vertex) * maxLineVertexCount);
+		lineVertexBuffer_->Map(0,nullptr,reinterpret_cast<void**>(&lineVertexData_));
+
+		lineVertexBufferView_.BufferLocation = lineVertexBuffer_->GetGPUVirtualAddress();
+		lineVertexBufferView_.SizeInBytes = sizeof(LineCommon::Vertex) * maxLineVertexCount;
+		lineVertexBufferView_.StrideInBytes = sizeof(LineCommon::Vertex);
+
+		lineWvpResource_ = dxCommon->CreateBufferResource(sizeof(Matrix4x4));
+		lineWvpResource_->Map(0,nullptr,reinterpret_cast<void**>(&lineWvpData_));
+
+		isLineResourceCreated_ = true;
+	}
+
+	uint32_t vertexCount = 0;
+	for(const Joint& joint : joints){
+		const Vector3 jointPosition = {joint.skeletonSpaceMatrix.m[3][0], joint.skeletonSpaceMatrix.m[3][1], joint.skeletonSpaceMatrix.m[3][2]};
+
+		// 親ジョイントとの間を結ぶ骨の線を書き込む(ルートジョイントは親がいないため線を生成しない)
+		if(drawBoneLines && joint.parent.has_value()){
+			const Matrix4x4& parentMatrix = joints[*joint.parent].skeletonSpaceMatrix;
+			const Vector3 parentPosition = {parentMatrix.m[3][0], parentMatrix.m[3][1], parentMatrix.m[3][2]};
+
+			lineVertexData_[vertexCount].position = {jointPosition.x, jointPosition.y, jointPosition.z, 1.0f};
+			lineVertexData_[vertexCount].color = kBoneDebugLineColor;
+			++vertexCount;
+			lineVertexData_[vertexCount].position = {parentPosition.x, parentPosition.y, parentPosition.z, 1.0f};
+			lineVertexData_[vertexCount].color = kBoneDebugLineColor;
+			++vertexCount;
+		}
+
+		// ジョイントのローカル軸(X, Y, Z)を書き込む
+		if(drawLocalAxes){
+			const Vector3 axisDirections[kAxisCount] = {
+				Normalize(Vector3{joint.skeletonSpaceMatrix.m[0][0], joint.skeletonSpaceMatrix.m[0][1], joint.skeletonSpaceMatrix.m[0][2]}),
+				Normalize(Vector3{joint.skeletonSpaceMatrix.m[1][0], joint.skeletonSpaceMatrix.m[1][1], joint.skeletonSpaceMatrix.m[1][2]}),
+				Normalize(Vector3{joint.skeletonSpaceMatrix.m[2][0], joint.skeletonSpaceMatrix.m[2][1], joint.skeletonSpaceMatrix.m[2][2]}),
+			};
+			const Vector4 axisColors[kAxisCount] = {kAxisColorX, kAxisColorY, kAxisColorZ};
+
+			for(uint32_t axisIndex = 0; axisIndex < kAxisCount; ++axisIndex){
+				const Vector3 axisEnd = jointPosition + axisDirections[axisIndex] * kLocalAxisLength;
+
+				lineVertexData_[vertexCount].position = {jointPosition.x, jointPosition.y, jointPosition.z, 1.0f};
+				lineVertexData_[vertexCount].color = axisColors[axisIndex];
+				++vertexCount;
+				lineVertexData_[vertexCount].position = {axisEnd.x, axisEnd.y, axisEnd.z, 1.0f};
+				lineVertexData_[vertexCount].color = axisColors[axisIndex];
+				++vertexCount;
+			}
+		}
+	}
+
+	if(vertexCount == 0){
+		return;
+	}
+
+	// ワールド×ビュープロジェクション行列を定数バッファへ書き込む
+	*lineWvpData_ = Multiply(worldMatrix,viewProjectionMatrix);
+
+	// 描画コマンドを発行する
+	ID3D12GraphicsCommandList* commandList = dxCommon->GetCommandList();
+	commandList->SetGraphicsRootSignature(lineCommon->GetRootSignature());
+	commandList->SetPipelineState(lineCommon->GetPipelineState());
+	commandList->IASetVertexBuffers(0,1,&lineVertexBufferView_);
+	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+	commandList->SetGraphicsRootConstantBufferView(0,lineWvpResource_->GetGPUVirtualAddress());
+	commandList->DrawInstanced(vertexCount,1,0,0);
+}
+// ↑骨デバッグ表示 追加
 
 void Skeleton::ApplyAnimation(const Animation& animation,float animationTime){
 	for(auto& joint : joints){

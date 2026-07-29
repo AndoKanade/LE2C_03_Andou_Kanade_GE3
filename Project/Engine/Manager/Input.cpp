@@ -60,7 +60,37 @@ void Input::Update(){
 		// ゲーム内で「ずっと右に移動し続ける」等のバグが発生します。
 		memset(key_,0,sizeof(key_));
 	}
+
+	// ↓パッド対応 追加
+	// ゲームパッド(0番)の状態を取得
+	ZeroMemory(&gamepadState_,sizeof(XINPUT_STATE));
+	isPadConnected_ = (XInputGetState(0,&gamepadState_) == ERROR_SUCCESS);
+	// ↑パッド対応 追加
 }
+
+// ↓パッド対応 追加
+/// <summary>
+/// 左スティックのX軸傾きを取得する(遊び範囲内は0を返す)
+/// </summary>
+float Input::GetLeftStickX() const{
+	SHORT x = gamepadState_.Gamepad.sThumbLX;
+	if(x > -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE && x < XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE){
+		return 0.0f;
+	}
+	return static_cast<float>(x) / 32767.0f;
+}
+
+/// <summary>
+/// 左スティックのY軸傾きを取得する(遊び範囲内は0を返す)
+/// </summary>
+float Input::GetLeftStickY() const{
+	SHORT y = gamepadState_.Gamepad.sThumbLY;
+	if(y > -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE && y < XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE){
+		return 0.0f;
+	}
+	return static_cast<float>(y) / 32767.0f;
+}
+// ↑パッド対応 追加
 
 /// <summary>
 /// キーが押されているか (長押し判定)

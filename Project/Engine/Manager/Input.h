@@ -6,12 +6,18 @@
 #include <wrl.h>
 #include <dinput.h>
 #include <cassert>
+// ↓パッド対応 追加
+#include <Xinput.h>
+// ↑パッド対応 追加
 
 #include "WinAPI.h"
 
 // 必要なライブラリのリンク
 #pragma comment(lib, "dinput8.lib")
 #pragma comment(lib, "dxguid.lib")
+// ↓パッド対応 追加
+#pragma comment(lib, "xinput.lib")
+// ↑パッド対応 追加
 
 /// <summary>
 /// 入力管理クラス
@@ -49,6 +55,23 @@ public:
 	/// <returns>押された瞬間なら true</returns>
 	bool TriggerKey(BYTE keyNumber);
 
+	// ↓パッド対応 追加
+	/// <summary>
+	/// ゲームパッド(0番)が接続されているか
+	/// </summary>
+	bool IsPadConnected() const{ return isPadConnected_; }
+
+	/// <summary>
+	/// 左スティックのX軸傾き(-1.0〜1.0、遊び範囲内は0)
+	/// </summary>
+	float GetLeftStickX() const;
+
+	/// <summary>
+	/// 左スティックのY軸傾き(-1.0〜1.0、遊び範囲内は0)
+	/// </summary>
+	float GetLeftStickY() const;
+	// ↑パッド対応 追加
+
 private:
 	// 借りてくるインスタンス
 	WinAPI* winApi_ = nullptr;
@@ -60,4 +83,10 @@ private:
 	// 全キーの入力状態 (256キー分)
 	BYTE key_[256] = {};     // 現在のフレームのキー状態
 	BYTE preKey_[256] = {};  // 1フレーム前のキー状態
+
+	// ↓パッド対応 追加
+	// XInputによるゲームパッド(0番)の状態
+	XINPUT_STATE gamepadState_{};
+	bool isPadConnected_ = false;
+	// ↑パッド対応 追加
 };
