@@ -90,32 +90,34 @@ void TitleScene::Update(){
 	ImGui::End();
 #endif
 
-	if(input_->TriggerKey(DIK_NUMPAD1) || input_->TriggerKey(DIK_1)){
+	// ↓パッド対応 追加(キーボードと同じ操作をゲームパッドのボタンでも行えるようにする)
+	if(input_->TriggerKey(DIK_NUMPAD1) || input_->TriggerKey(DIK_1) || input_->TriggerPadButton(XINPUT_GAMEPAD_DPAD_UP)){
 		Application::GetInstance()->SetCurrentPPType(PostProcess::Type::PostProcess); // Default
-	} else if(input_->TriggerKey(DIK_NUMPAD2) || input_->TriggerKey(DIK_2)){
+	} else if(input_->TriggerKey(DIK_NUMPAD2) || input_->TriggerKey(DIK_2) || input_->TriggerPadButton(XINPUT_GAMEPAD_DPAD_DOWN)){
 		Application::GetInstance()->SetCurrentPPType(PostProcess::Type::BoxFilter);
-	} else if(input_->TriggerKey(DIK_NUMPAD3) || input_->TriggerKey(DIK_3)){
+	} else if(input_->TriggerKey(DIK_NUMPAD3) || input_->TriggerKey(DIK_3) || input_->TriggerPadButton(XINPUT_GAMEPAD_DPAD_LEFT)){
 		Application::GetInstance()->SetCurrentPPType(PostProcess::Type::Grayscale);
-	} else if(input_->TriggerKey(DIK_NUMPAD4) || input_->TriggerKey(DIK_4)){
+	} else if(input_->TriggerKey(DIK_NUMPAD4) || input_->TriggerKey(DIK_4) || input_->TriggerPadButton(XINPUT_GAMEPAD_DPAD_RIGHT)){
 		Application::GetInstance()->SetCurrentPPType(PostProcess::Type::Vignette);
-	} else if(input_->TriggerKey(DIK_NUMPAD5) || input_->TriggerKey(DIK_5)){
+	} else if(input_->TriggerKey(DIK_NUMPAD5) || input_->TriggerKey(DIK_5) || input_->TriggerPadButton(XINPUT_GAMEPAD_A)){
 		Application::GetInstance()->SetCurrentPPType(PostProcess::Type::GaussianBlur);
-	} else if(input_->TriggerKey(DIK_NUMPAD6) || input_->TriggerKey(DIK_6)){
+	} else if(input_->TriggerKey(DIK_NUMPAD6) || input_->TriggerKey(DIK_6) || input_->TriggerPadButton(XINPUT_GAMEPAD_B)){
 		Application::GetInstance()->SetCurrentPPType(PostProcess::Type::LuminanceOutline);
-	} else if(input_->TriggerKey(DIK_NUMPAD7) || input_->TriggerKey(DIK_7)){
+	} else if(input_->TriggerKey(DIK_NUMPAD7) || input_->TriggerKey(DIK_7) || input_->TriggerPadButton(XINPUT_GAMEPAD_X)){
 		Application::GetInstance()->SetCurrentPPType(PostProcess::Type::DepthOutline);
-	} else if(input_->TriggerKey(DIK_NUMPAD8) || input_->TriggerKey(DIK_8)){
+	} else if(input_->TriggerKey(DIK_NUMPAD8) || input_->TriggerKey(DIK_8) || input_->TriggerPadButton(XINPUT_GAMEPAD_Y)){
 		Application::GetInstance()->SetCurrentPPType(PostProcess::Type::RadialBlur);
-	} else if(input_->TriggerKey(DIK_NUMPAD9) || input_->TriggerKey(DIK_9)){
+	} else if(input_->TriggerKey(DIK_NUMPAD9) || input_->TriggerKey(DIK_9) || input_->TriggerPadButton(XINPUT_GAMEPAD_LEFT_SHOULDER)){
 		Application::GetInstance()->SetCurrentPPType(PostProcess::Type::Dissolve);
 		// アニメーションのトリガーを引く
 		Application::GetInstance()->StartDissolveAnimation();
-	} else if(input_->TriggerKey(DIK_NUMPAD0) || input_->TriggerKey(DIK_0)){
+	} else if(input_->TriggerKey(DIK_NUMPAD0) || input_->TriggerKey(DIK_0) || input_->TriggerPadButton(XINPUT_GAMEPAD_RIGHT_SHOULDER)){
 		Application::GetInstance()->SetCurrentPPType(PostProcess::Type::Random);
-	}else if(input_->TriggerKey(DIK_RETURN)){
+	}else if(input_->TriggerKey(DIK_RETURN) || input_->TriggerPadButton(XINPUT_GAMEPAD_RIGHT_THUMB)){
 		// 弱点を突いた瞬間をシミュレートしてグリッチを発動
 		Application::GetInstance()->TriggerGlitch();
 	}
+	// ↑パッド対応 追加
 
 	// 2. オブジェクトの更新
 	if(titleObject_){
@@ -129,8 +131,8 @@ void TitleScene::Update(){
 		sprite_->Update();
 	}
 
-	// 4. シーン遷移 (スペースキー)
-	if(input_->TriggerKey(DIK_SPACE)){
+	// 4. シーン遷移 (スペースキー / パッドのSTARTボタン)
+	if(input_->TriggerKey(DIK_SPACE) || input_->TriggerPadButton(XINPUT_GAMEPAD_START)){
 		SceneManager::GetInstance()->ChangeScene("GAME");
 	}
 }

@@ -62,6 +62,20 @@ namespace{
 	constexpr float kHumanMoveSpeed = 0.05f; // WASDキー1フレームあたりの移動量
 	constexpr float kMaxMoveInputLength = 1.0f; // 移動方向ベクトルの最大長(これを超えたら正規化する)
 	// ↑WASD移動 追加
+
+	// ↓Release用キー操作 追加
+	// Release構成ではUSE_IMGUIが定義されずImGuiが使用できないため、
+	// 加点要素確認用のキー割り当てをここに定数としてまとめる
+	constexpr BYTE kKeyToggleBoneDebug = DIK_F1;  // 骨のデバッグ表示ON/OFF
+	constexpr BYTE kKeyToggleAxisDisplay = DIK_F2;  // ジョイントローカル軸表示ON/OFF
+	constexpr BYTE kKeyToggleJointName = DIK_F3;  // 骨の名前表示ON/OFF
+	constexpr BYTE kKeyEmitShockwave = DIK_1;   // GPUパーティクル(Shockwave)発生
+	constexpr BYTE kKeyEmitSpark = DIK_2;   // GPUパーティクル(Spark)発生
+	constexpr BYTE kKeyEmitSmoke = DIK_3;   // GPUパーティクル(Smoke)発生
+	constexpr BYTE kKeyEmitCharge = DIK_4;   // GPUパーティクル(Charge)発生
+	constexpr BYTE kKeyEmitAura = DIK_5;   // GPUパーティクル(Aura)発生
+	constexpr BYTE kKeyEmitWarp = DIK_6;   // GPUパーティクル(Warp)発生
+	// ↑Release用キー操作 追加
 }
 
 GameScene::GameScene() = default;
@@ -266,6 +280,33 @@ void GameScene::Update(){
 		obj->Update();
 	}
 
+	// ↓Release用キー操作 追加
+	// ImGuiが無効なRelease構成でも加点要素(骨のデバッグ表示・GPUパーティクル)を
+	// 確認できるよう、キー入力のみで完結する切り替え・発生処理を用意する
+	if(input_){
+		// パッド対応: Y/X/Bボタンでもキーボードと同じ切り替えができるようにする
+		if(input_->TriggerKey(kKeyToggleBoneDebug) || input_->TriggerPadButton(XINPUT_GAMEPAD_Y)) isBoneDebugEnabled_ = !isBoneDebugEnabled_;
+		if(input_->TriggerKey(kKeyToggleAxisDisplay) || input_->TriggerPadButton(XINPUT_GAMEPAD_X)) isAxisDisplayEnabled_ = !isAxisDisplayEnabled_;
+		if(input_->TriggerKey(kKeyToggleJointName) || input_->TriggerPadButton(XINPUT_GAMEPAD_B)) isJointNameDisplayEnabled_ = !isJointNameDisplayEnabled_;
+
+		// 骨のデバッグ表示中はモデルを半透明化して線を見やすくする
+		if(humanObj_){
+			if(auto* material = humanObj_->GetMaterial()){
+				material->color.w = isBoneDebugEnabled_ ? kBoneDebugModelAlpha : kOpaqueAlpha;
+			}
+		}
+
+		// パッド対応: 十字キー/LB/RBでもキーボードと同じパーティクル発生ができるようにする
+		auto* particleManager = ParticleManager::GetInstance();
+		if(input_->TriggerKey(kKeyEmitShockwave) || input_->TriggerPadButton(XINPUT_GAMEPAD_DPAD_UP)) particleManager->EmitShockwave({0.0f, 0.0f, 0.0f});
+		if(input_->TriggerKey(kKeyEmitSpark) || input_->TriggerPadButton(XINPUT_GAMEPAD_DPAD_DOWN)) particleManager->EmitSpark({0.0f, 0.0f, 0.0f});
+		if(input_->TriggerKey(kKeyEmitSmoke) || input_->TriggerPadButton(XINPUT_GAMEPAD_DPAD_LEFT)) particleManager->EmitSmoke({0.0f, 0.0f, 0.0f});
+		if(input_->TriggerKey(kKeyEmitCharge) || input_->TriggerPadButton(XINPUT_GAMEPAD_DPAD_RIGHT)) particleManager->EmitCharge({0.0f, 0.0f, 0.0f});
+		if(input_->TriggerKey(kKeyEmitAura) || input_->TriggerPadButton(XINPUT_GAMEPAD_LEFT_SHOULDER)) particleManager->EmitAura({0.0f, 0.0f, 0.0f});
+		if(input_->TriggerKey(kKeyEmitWarp) || input_->TriggerPadButton(XINPUT_GAMEPAD_RIGHT_SHOULDER)) particleManager->EmitWarp();
+	}
+	// ↑Release用キー操作 追加
+
 	// --- デバッグUIの表示 ---
 #ifdef USE_IMGUI
 	if(Camera* activeCamera = CameraManager::GetInstance()->GetActiveCamera()){
@@ -322,13 +363,10 @@ void GameScene::Update(){
 				}
 
 				// ↓骨デバッグ表示 追加
-				// 骨を見やすくするため、表示中はモデルを半透明化する
+				// モデルの半透明化はUpdate()冒頭のキー操作処理側で一括して行う
 				ImGui::Checkbox("Bone Debug Display",&isBoneDebugEnabled_);
 				ImGui::Checkbox("Show Local Axes",&isAxisDisplayEnabled_);
 				ImGui::Checkbox("Show Bone Names",&isJointNameDisplayEnabled_);
-				if(auto* material = humanObj_->GetMaterial()){
-					material->color.w = isBoneDebugEnabled_ ? kBoneDebugModelAlpha : kOpaqueAlpha;
-				}
 
 				// キャラクターの現在位置(WASD移動の確認用)
 				ImGui::Text("Human Pos: (%.2f, %.2f, %.2f)",humanObj_->GetTranslate().x,humanObj_->GetTranslate().y,humanObj_->GetTranslate().z);

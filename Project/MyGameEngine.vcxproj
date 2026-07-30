@@ -128,7 +128,9 @@ if not defined GITHUB_ACTIONS if exist "$(WindowsSdkDir)bin\$(TargetPlatformVers
     </Link>
     <PostBuildEvent>
       <Command>if not defined GITHUB_ACTIONS copy /Y "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxcompiler.dll" "$(TargetDir)"
-if not defined GITHUB_ACTIONS if exist "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" copy /Y "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)"</Command>
+if not defined GITHUB_ACTIONS if exist "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" copy /Y "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)"
+if not defined GITHUB_ACTIONS xcopy /Y /E /I /Q "$(ProjectDir)Engine\Graphics\Shaders" "$(TargetDir)Engine\Graphics\Shaders\"
+if not defined GITHUB_ACTIONS xcopy /Y /E /I /Q "$(ProjectDir)resource" "$(TargetDir)resource\"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Development|x64'">

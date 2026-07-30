@@ -489,6 +489,7 @@ void ParticleManager::CreateGraphicsPipeline(){
         Logger::Log(reinterpret_cast<char*>(errorBlob->GetBufferPointer()));
         assert(false);
     }
+
     hr = dxCommon_->GetDevice()->CreateRootSignature(0,signatureBlob->GetBufferPointer(),signatureBlob->GetBufferSize(),IID_PPV_ARGS(&rootSignature_));
     assert(SUCCEEDED(hr));
 

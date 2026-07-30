@@ -62,7 +62,8 @@ void Input::Update(){
 	}
 
 	// ↓パッド対応 追加
-	// ゲームパッド(0番)の状態を取得
+	// ゲームパッド(0番)の状態を取得(トリガー判定のため、取得前に前フレーム分を保存する)
+	preGamepadState_ = gamepadState_;
 	ZeroMemory(&gamepadState_,sizeof(XINPUT_STATE));
 	isPadConnected_ = (XInputGetState(0,&gamepadState_) == ERROR_SUCCESS);
 	// ↑パッド対応 追加
@@ -89,6 +90,22 @@ float Input::GetLeftStickY() const{
 		return 0.0f;
 	}
 	return static_cast<float>(y) / 32767.0f;
+}
+
+/// <summary>
+/// ゲームパッドのボタンが押されているか (長押し判定)
+/// </summary>
+bool Input::PushPadButton(WORD button) const{
+	return (gamepadState_.Gamepad.wButtons & button) != 0;
+}
+
+/// <summary>
+/// ゲームパッドのボタンがこのフレームで押されたか (トリガー判定)
+/// </summary>
+bool Input::TriggerPadButton(WORD button) const{
+	const bool isPressedNow = (gamepadState_.Gamepad.wButtons & button) != 0;
+	const bool wasPressedBefore = (preGamepadState_.Gamepad.wButtons & button) != 0;
+	return isPressedNow && !wasPressedBefore;
 }
 // ↑パッド対応 追加
 

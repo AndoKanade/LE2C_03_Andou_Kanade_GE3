@@ -70,6 +70,20 @@ public:
 	/// 左スティックのY軸傾き(-1.0〜1.0、遊び範囲内は0)
 	/// </summary>
 	float GetLeftStickY() const;
+
+	/// <summary>
+	/// ゲームパッドのボタンが押されているか (長押し判定)
+	/// </summary>
+	/// <param name="button">XINPUT_GAMEPAD_A などのボタンフラグ</param>
+	/// <returns>押されていれば true</returns>
+	bool PushPadButton(WORD button) const;
+
+	/// <summary>
+	/// ゲームパッドのボタンがこのフレームで押されたか (トリガー判定)
+	/// </summary>
+	/// <param name="button">XINPUT_GAMEPAD_A などのボタンフラグ</param>
+	/// <returns>押された瞬間なら true</returns>
+	bool TriggerPadButton(WORD button) const;
 	// ↑パッド対応 追加
 
 private:
@@ -87,6 +101,7 @@ private:
 	// ↓パッド対応 追加
 	// XInputによるゲームパッド(0番)の状態
 	XINPUT_STATE gamepadState_{};
+	XINPUT_STATE preGamepadState_{}; // 1フレーム前のパッド状態(ボタンのトリガー判定用)
 	bool isPadConnected_ = false;
 	// ↑パッド対応 追加
 };

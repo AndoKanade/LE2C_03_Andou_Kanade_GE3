@@ -344,8 +344,15 @@ ComPtr<ID3D12DescriptorHeap> DXCommon::CreateDiscriptorHeap(D3D12_DESCRIPTOR_HEA
 ComPtr<IDxcBlob> DXCommon::CompileShader(const std::wstring& filePath,const wchar_t* profile){
 	Logger::Log(std::format("Begin CompileShader: {}\n",ConvertString(filePath)));
 
+	// ↓Release起動不可 修正
+	// assert()の引数に直接呼び出しを書くと、NDEBUG定義時(Release構成)は
+	// assert自体が丸ごと消えてしまい、この呼び出しそのものが実行されなくなる。
+	// そのためHRESULTを変数で受けてからassertする形に修正する。
+	HRESULT hr;
 	ComPtr<IDxcBlobEncoding> shaderSource = nullptr;
-	assert(SUCCEEDED(dxcUtils->LoadFile(filePath.c_str(),nullptr,&shaderSource)));
+	hr = dxcUtils->LoadFile(filePath.c_str(),nullptr,&shaderSource);
+	assert(SUCCEEDED(hr));
+	// ↑Release起動不可 修正
 
 	DxcBuffer buffer;
 	buffer.Ptr = shaderSource->GetBufferPointer();
@@ -372,8 +379,11 @@ ComPtr<IDxcBlob> DXCommon::CompileShader(const std::wstring& filePath,const wcha
 		assert(false);
 	}
 
+	// ↓Release起動不可 修正(理由は上記と同様)
 	ComPtr<IDxcBlob> shaderBlob = nullptr;
-	assert(SUCCEEDED(shaderResult->GetOutput(DXC_OUT_OBJECT,IID_PPV_ARGS(&shaderBlob),nullptr)));
+	hr = shaderResult->GetOutput(DXC_OUT_OBJECT,IID_PPV_ARGS(&shaderBlob),nullptr);
+	assert(SUCCEEDED(hr));
+	// ↑Release起動不可 修正
 
 	Logger::Log(std::format("Compile Succeeded: {}\n",ConvertString(filePath)));
 	return shaderBlob;
