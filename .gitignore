@@ -316,7 +316,9 @@ DirectXGame/imgui.ini
 
 # DirectXTex Compiled Shaders
 **/DirectXTex/Shaders/Compiled/
-/Dumps/2025-0416-1627.dmp
+
+# クラッシュダンプ(実際の出力先はプロジェクト直下のDumps/のため、そこを指すよう修正)
+/Project/Dumps/
 
 imgui.ini
 
